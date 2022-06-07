@@ -3,6 +3,8 @@
 #ifndef __TEMPERATURE_H__
 #define __TEMPERATURE_H__
 
+#define CORES 4
+
 #include <iostream>
 #include <fstream>
 #include <time.h>
@@ -61,6 +63,18 @@ public:
 
 	Temp()
 	{
+        
+        string Temp::file = "/sys/class/thermal/thermal_zone0/temp";
+        string Temp::filename2
+        //string Temp::filename = "test_temp";
+        
+        static ifstream output_files[CORES];
+        for (size_t i = 0; i < CORES; i++)
+        {
+            output_files[i].open(path[i]);
+        }
+        
+		fin.open(filename);
 		c_temp = _get_temperature();
 //        c_temp = _get_temperature(1);
 		_get_time();
@@ -105,9 +119,9 @@ public:
 
 };
 
-
-string Temp::filename = "/sys/class/thermal/thermal_zone0/temp";
-//string Temp::filename = "test_temp";
-
+string Temp::paths[0] = "/sys/class/thermal/thermal_zone0/temp";
+string Temp::paths[1] = "/sys/class/thermal/thermal_zone1/temp";
+string Temp::paths[2] = "/sys/class/thermal/thermal_zone2/temp";
+string Temp::paths[3] = "/sys/class/thermal/thermal_zone3/temp";
 
 #endif

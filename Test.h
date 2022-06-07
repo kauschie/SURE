@@ -22,6 +22,7 @@ class Test
         string filename;
         vector<Temp> data;
         Stats stats;
+        bool is_stressed;
 
         // functions
         string _get_date()
@@ -45,12 +46,14 @@ class Test
         friend class Stats;
 
         // constructor
-        Test(int ri = 1, int ti = 1, string fn = "") 
+        Test(bool stress; int ri = 1, int ti = 1, string fn = "") 
+
         {
             reading_interval = ri;
             test_duration = ti;
 
             filename  = (fn != "") ? fn : ( _get_date() + "test.txt");
+            is_stressed = stress;
 
         }
 
@@ -179,58 +182,96 @@ class Test
 
         void write_data(Stats & s)
         {
-            
+
             ofstream out(filename);
-            
+
             out << "Timestamp (HH:MM:SS)" << "\t" << "Temperature (C)\n";
-            
+
             for (auto it = data.begin(); it != data.end(); it++)
             {
-                
+
             }
 
 
         }
 
-        void run()
+        // runs the test under the set conditions
+        // flag is passed in as parameter when executing program on command line
+        // when True, the output is also displayed to the screen which is slows down the execution
+        // of the processor allowing it to stay cooler
+        //
+        // This is defaulted to true for debugging but should be set to false after it is complete
+        void run(bool ouput_flag = true)
         {
             time_t start_time, last_time;
             unsigned int count = 0;
-            bool is_active = true;
 
+            // set initial time variables
             time(&start_time); // set start time
             last_time = start_time; // assign last time as start time 
-            tm * curr = localtime(&start_time);
-            cout << "Start Time: " << setw(2) << right << setfill('0') << curr->tm_hour << ":" 
+            tm * curr = localtime(&start_time); // tm structure which holds the time values
+
+            // open log file to write
+            ofstream out();
+            out.open(filename, ios::app);
+
+            // output info to log
+            //
+            // Header
+            out << "Start Time, " << setw(2) << right << setfill('0') << curr->tm_hour << "," 
+                << setw(2) << right << setfill('0') << curr->tm_min << "," 
+                << setw(2) << right << setfill('0') << curr->tm_sec << endl << endl;
+            out << "Test Duration: " << test_duration << endl; 
+            out << "Under Stress: " << boolalpha << is_stressed << endl << endl;
+
+            // column headings
+            out << "Timestamp (HH:MM:SS), Temperature (C)\n";
+            // starting time
+            out << setw(2) << right << setfill('0') << curr->tm_hour << ":" 
                 << setw(2) << right << setfill('0') << curr->tm_min << ":" 
                 << setw(2) << right << setfill('0') << curr->tm_sec << endl;
-            
-            //cout << "Last Time: " << last_time << endl;
-            while (is_active)
+
+
+            // check if outputting text to screen
+            if (output_flag == true)
             {
-                //cout << "Start Time: " << start_time << endl;
-                //cout << "Last Time: " << last_time << endl;
-                if (difftime(time(NULL),last_time) >= reading_interval)
+                cout << "Start Time, " << setw(2) << right << setfill('0') << curr->tm_hour << ":" 
+                    << setw(2) << right << setfill('0') << curr->tm_min << ":" 
+                    << setw(2) << right << setfill('0') << curr->tm_sec << endl;
+            }
+
+            while (true)
+            {
+                // temp reading also stores time the reading was taken directly in data point
+                // creation of new temp object collects the data point including time
+                data.emplace_back();
+
+                // set time last temp was taken   
+                last_time = data[count].get_rawtime(); 
+
+                // write to log
+                out << setw(2) << right << setfill('0') << curr->tm_hour << ":" 
+                    << setw(2) << right << setfill('0') << curr->tm_min << ":" 
+                    << setw(2) << right << setfill('0') << curr->tm_sec << ","
+                    // TODO - write all 4 cores
+                    << data[count].
+
+
+                // output data to screen
+                if (output_flag == true)
                 {
-                    //data.push_back(); // get temp reading and store
-                    // temp reading also stores time the reading was taken directly in data point
-                    data.emplace_back();
-                    last_time = data[count].get_rawtime(); // set time last was taken   
-
-                    // output data to screen
-                    cout << setw(2) << setfill('0') << "at " << data[count].hr() << ":" 
-                        << data[count].min() << ":" << data[count].sec() 
+                    cout << setw(2) << setfill('0') << "at " << data[count].hr() << "," 
+                        << data[count].min() << "," << data[count].sec() 
                         << " the cpu is " << data[count].cel() << " degrees celcius\n";
-
-                    count++;
                 }
 
-                // check if done with test (compare start timer with current time)
+                count++;
+
+                            // check if done with test (compare start timer with current time)
                 if ( difftime(time(NULL), start_time) >= (test_duration * 60 ) )
                 {
                     //       cout << "Entering break statement..." << endl;
                     //      getchar();
-                    is_active = false; 
                 }
 
             }
