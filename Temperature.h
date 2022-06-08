@@ -3,11 +3,10 @@
 #ifndef __TEMPERATURE_H__
 #define __TEMPERATURE_H__
 
-#define CORES 4
-
 #include <iostream>
-#include <fstream>
-#include <time.h>
+#include <fstream> // to read files
+#include <time.h> // for time library
+#include <cmath> // for fabs
 
 
 using namespace std;
@@ -20,6 +19,7 @@ private:
 	float c_temp;
 	tm * curr_time;	
     time_t rawtime;
+    char tm_str[11]; 
 
 	void _get_time()
 	{
@@ -29,6 +29,7 @@ private:
 		time(&rawtime);
 		// timeinfo = localtime(&rawtime);
 		curr_time = localtime(&rawtime);
+        strftime(tm_str, 21, "%T", curr_time); // get time as string in time_buff
 	}
 	
 //    int _get_temperature(int x) { return 69.69; }   // stub for testing when not on linux
@@ -61,42 +62,51 @@ public:
     static string filename; 
 //    static num_temps; // used vector size() instead
 
+    // default constructor
+    // reads temp from locatin specified in (( filename ))
 	Temp()
 	{
-        
-        string Temp::file = "/sys/class/thermal/thermal_zone0/temp";
-        string Temp::filename2
-        //string Temp::filename = "test_temp";
-        
-        static ifstream output_files[CORES];
-        for (size_t i = 0; i < CORES; i++)
-        {
-            output_files[i].open(path[i]);
-        }
-        
-		fin.open(filename);
+
 		c_temp = _get_temperature();
 //        c_temp = _get_temperature(1);
 		_get_time();
-//        num_temps++;
 	}
+
+    
+    // parameterized constructor
+    // Usage:
+    //      used to create a Temperature data point from the test's threshold temperature 
+    //      which also holds the start time of the test
+    //      this is then used as a comparison to see if temps have reached the threshold
+    //      and it will be used anywhere that the start_time of the test run is needed
+    //  Args: used when a float is passed in when the object is created
+    Temp(float t)
+    {
+       c_temp = t;
+       _get_time();
+
+    }
 
 	~Temp()
 	{
-
 	}
 	
     // getter functions for times
-    time_t get_rawtime() { return rawtime; }
+    time_t & get_rawtime() { return rawtime; } // return a reference so that it can be used as lvalue
+    string get_tm_str() { return tm_str; } // outputs "HH:MM:SS"
+
+    /*
+    // don't think i use anymore but saving for the time being
 	int sec() { return curr_time->tm_sec; }
 	int min() { return curr_time->tm_min; }
 	int hr() { return curr_time->tm_hour; }
 	int yr() { return curr_time->tm_year; }
 	int mon() { return curr_time->tm_mon; }
 	int day() { return curr_time->tm_mday; }
+    
+    */
 
-
-    // gette functions for temp
+    // getter functions for temp
 	float cel()
 	{
 		//c_temp = _get_temperature();
@@ -110,18 +120,16 @@ public:
 	}
 
     // overloaded operators
-    bool operator == (const Temp & rhs) { return ( c_temp == rhs.c_temp ); }
-    bool operator != (const Temp & rhs) { return ( c_temp != rhs.c_temp ); }
-    bool operator >= (const Temp & rhs) { return ( c_temp >= rhs.c_temp ); }
-    bool operator <= (const Temp & rhs) { return ( c_temp <= rhs.c_temp ); }
-    bool operator > (const Temp & rhs) { return ( c_temp > rhs.c_temp ); }
-    bool operator < (const Temp & rhs) { return ( c_temp < rhs.c_temp ); }
+    bool operator == (const Temp & rhs) { return ( fabs( c_temp - rhs.c_temp ) <= 0.001 );  }
+    bool operator != (const Temp & rhs) { return ( fabs( c_temp - rhs.c_temp ) > 0.001 );  }
+    bool operator >= (const Temp & rhs) { return ( c_temp - rhs.c_temp ) >= 0.001 ; }
+    bool operator <= (const Temp & rhs) { return ( c_temp - rhs.c_temp ) <= 0.001 ; }
+    bool operator > (const Temp & rhs) { return ( c_temp - rhs.c_temp ) > 0.001 ; }
+    bool operator < (const Temp & rhs) { return ( c_temp - rhs.c_temp ) < 0.001 ; }
 
 };
 
-string Temp::paths[0] = "/sys/class/thermal/thermal_zone0/temp";
-string Temp::paths[1] = "/sys/class/thermal/thermal_zone1/temp";
-string Temp::paths[2] = "/sys/class/thermal/thermal_zone2/temp";
-string Temp::paths[3] = "/sys/class/thermal/thermal_zone3/temp";
+string Temp::filename = "/sys/class/thermal/thermal_zone0/temp";
+//string Temp::filename = "test_temp";
 
 #endif
