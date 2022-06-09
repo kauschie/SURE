@@ -15,6 +15,14 @@
 
 #define FAN 23  // BCM pin number after using linux command gpio readall, locate physical pin and use BCM number
 
+
+// TODO:
+//
+//
+// 1. report +10c value
+// 2. use system("/* code here */") to run the malicious software on the cores
+
+
 using namespace std;
 
 class Test
@@ -99,7 +107,7 @@ class Test
         void run()
         {
             bool fan_on = false;
-            int fan_duration = 60*2; // 2 minutes for testing
+            int fan_duration = 60*5; // 5 minutes for testing
 
             /////////////////////////////////////
             ///////    SETUP WIRINGPI    ////////
@@ -158,14 +166,16 @@ class Test
 
 
                 // write to log
-                out << "," << data[count].get_tm_str() << "," << data[count].cel() << endl;
+                out << "," << data[count].get_tm_str() << "," << data[count].cel()+10
+                    << " (" << data[count].cel() << ")\n";
 
 
                 // output data to screen
                 if (output_mode)
                 {
                     cout << "at " << data[count].get_tm_str() << " the cpu is " 
-                        << data[count].cel()+10 << " degrees celcius\n";
+                        << data[count].cel()+10 << "( " << data[count].cel()
+                        << ") degrees celcius\n";
                 }
 
 
@@ -180,7 +190,7 @@ class Test
                 
                 if (is_stressed)
                 {
-                    if( data[count] >= threshold )
+                    if( data[count].cel() >= (threshold.cel()+10) )
                     {
                         if (output_mode)
                             cout << "<!> ";
@@ -193,10 +203,9 @@ class Test
                             threshold.set_time(&(data[count].get_rawtime()));
 
                             out << ",threshold_reached," << threshold.get_tm_str() << endl;
-                            // if (output_mode)                                                    // TODO - Uncomment after testing
+                            // if (output_mode) // TODO - Uncomment after testing
                                 cout << "Threshold reached -- turning fan on" << endl;
                         }
-
 
                     }
 
@@ -205,7 +214,6 @@ class Test
                     {
                         if ( difftime(data[count].get_rawtime(), threshold.get_rawtime())  >=  (fan_duration) )
                         {
-                            // TODO code to turn fan off
                             digitalWrite(FAN,LOW);
                             fan_on = false;
                             out << ",fan_shutoff reached," << threshold.cel() << endl;
@@ -225,7 +233,7 @@ class Test
                 if ( difftime(data[count].get_rawtime(), data[0].get_rawtime())  >=  (test_duration * 60 ))
                 {
                     // wait to exit until fan_timer has been reached
-                    if ( !fan_on )
+                    //if ( !fan_on )
                         break;
                 }
 
@@ -235,6 +243,7 @@ class Test
 
 
             stats.get_Stats(data);                  // collect stats i want
+            out << endl << endl << stats.to_string() << endl; // write stats to log
             cout << stats.to_string() << endl;      // write stats to screen
 
 
