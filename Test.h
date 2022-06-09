@@ -190,7 +190,7 @@ class Test
                 
                 if (is_stressed)
                 {
-                    if( data[count].cel() >= (threshold.cel()+10) )
+                    if( data[count].cel()+10 >= (threshold.cel()) )
                     {
                         if (output_mode)
                             cout << "<!> ";
