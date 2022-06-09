@@ -5,9 +5,8 @@
 
 #include <iostream>
 #include <fstream> // to read files
-#include <time.h> // for time library
+#include <ctime> // for time library
 #include <cmath> // for fabs
-
 
 using namespace std;
 
@@ -60,7 +59,6 @@ private:
 public:
 
     static string filename; 
-//    static num_temps; // used vector size() instead
 
     // default constructor
     // reads temp from locatin specified in (( filename ))
@@ -68,7 +66,6 @@ public:
 	{
 
 		c_temp = _get_temperature();
-//        c_temp = _get_temperature(1);
 		_get_time();
 	}
 
@@ -90,22 +87,19 @@ public:
 	~Temp()
 	{
 	}
+
+    // mutator to change when threshold was reached
+    void set_time(time_t * raw)
+    {
+        rawtime = *raw;
+        curr_time = localtime(&rawtime);
+        strftime(tm_str, 21, "%T", curr_time); // get time as string in time_buff
+    }
 	
     // getter functions for times
     time_t & get_rawtime() { return rawtime; } // return a reference so that it can be used as lvalue
     string get_tm_str() { return tm_str; } // outputs "HH:MM:SS"
-
-    /*
-    // don't think i use anymore but saving for the time being
-	int sec() { return curr_time->tm_sec; }
-	int min() { return curr_time->tm_min; }
-	int hr() { return curr_time->tm_hour; }
-	int yr() { return curr_time->tm_year; }
-	int mon() { return curr_time->tm_mon; }
-	int day() { return curr_time->tm_mday; }
     
-    */
-
     // getter functions for temp
 	float cel()
 	{

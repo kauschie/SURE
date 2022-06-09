@@ -2,7 +2,6 @@
 #include "Test.h"
 #include "Menu.h"
 #include <iostream>
-#include <stdio.h>
 #include <cstring>
 
 using namespace std;

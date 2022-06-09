@@ -6,9 +6,10 @@
 #include "Test.h"
 #include <vector>
 #include <algorithm>
-#include <assert.h>
+#include <cassert>
 #include <sstream>
 #include <iomanip>
+
 
 #define NOT_DEFINED -1
 

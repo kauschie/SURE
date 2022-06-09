@@ -9,8 +9,11 @@
 #include <ctime>    // for time_t, tm, localtime(), time()
 #include <sstream> // for ostringstream
 #include <vector>   // for vector container
-#include <stdio.h>  // for getchar()
+#include <cstdio>  // for getchar()
+#include <wiringPi.h>   // to write to GPIO pins  **NOTE** Must also compile with -lwiringPi eg) ((( g++ -o main main.cpp -lwiringPi  )))
 #include "Stats.h"  // for doing stats on our data set
+
+#define FAN 23  // BCM pin number after using linux command gpio readall, locate physical pin and use BCM number
 
 using namespace std;
 
@@ -96,6 +99,16 @@ class Test
         void run()
         {
             bool fan_on = false;
+            int fan_duration = 60*2; // 2 minutes for testing
+
+            /////////////////////////////////////
+            ///////    SETUP WIRINGPI    ////////
+            /////////////////////////////////////
+
+            wiringPiSetupGpio();
+            pinMode(FAN, OUTPUT);
+
+
 
             ////////////////////////////////////////
             ///// open log file to write data //////
@@ -112,7 +125,6 @@ class Test
             // REMEMBER: this is not the starting temp, the starting temp is data[0]
 
             Temp threshold(temp_threshold); 
-            Temp fan_shutoff(50.000f);
             signed int count = 0;   // number of data points
 
 
@@ -153,7 +165,7 @@ class Test
                 if (output_mode)
                 {
                     cout << "at " << data[count].get_tm_str() << " the cpu is " 
-                        << data[count].cel() << " degrees celcius\n";
+                        << data[count].cel()+10 << " degrees celcius\n";
                 }
 
 
@@ -162,42 +174,60 @@ class Test
                 //  Checks if it needs to respond to Stress signal //
                 /////////////////////////////////////////////////////
 
-                //
+                ///////////////////////////////////////
+                //logic specific to stress condition //
+                ///////////////////////////////////////
+                
                 if (is_stressed)
                 {
                     if( data[count] >= threshold )
                     {
-                        if ( !fan_on )
-                        {
-                            // TODO put code here to turn on the pin for the GPIO fan
-
-                            out << ",threshold_reached," << threshold.cel() << endl;
-                            if (output_mode)
-                                cout << "Threshold reached -- turning fan on" << endl;
-                        }
-
                         if (output_mode)
                             cout << "<!> ";
 
+                        // turn on fan if it's not on and the temp has crossed the threshold
+                        if ( !fan_on )
+                        {
+                            digitalWrite(FAN,HIGH); 
+                            fan_on = true;
+                            threshold.set_time(&(data[count].get_rawtime()));
+
+                            out << ",threshold_reached," << threshold.get_tm_str() << endl;
+                            // if (output_mode)                                                    // TODO - Uncomment after testing
+                                cout << "Threshold reached -- turning fan on" << endl;
+                        }
+
+
                     }
 
-                    if ( data[count] <= fan_shutoff )
+                    // turn fan off after fan_duration has elapsed 
+                    if ( fan_on)
                     {
+                        if ( difftime(data[count].get_rawtime(), threshold.get_rawtime())  >=  (fan_duration) )
+                        {
                             // TODO code to turn fan off
+                            digitalWrite(FAN,LOW);
+                            fan_on = false;
                             out << ",fan_shutoff reached," << threshold.cel() << endl;
                             if (output_mode)
                                 cout << "Fan_Shutoff reached -- turning fan off" << endl;
+                        }
+
                     }
 
-                }
-                
-                if ( difftime(data[count].get_rawtime(), threshold.get_rawtime())  >=  (test_duration * 60 ))
-                    break;
 
-//                else // timed test
- //               {
-                    // check if done with test (compare start timer with current time)
-//                }
+                }
+
+                ///////////////////////////////////////////////////////////////////
+                // program ends no matter what if the length of test is exceeded //
+                ///////////////////////////////////////////////////////////////////
+
+                if ( difftime(data[count].get_rawtime(), data[0].get_rawtime())  >=  (test_duration * 60 ))
+                {
+                    // wait to exit until fan_timer has been reached
+                    if ( !fan_on )
+                        break;
+                }
 
                 count++;
 
