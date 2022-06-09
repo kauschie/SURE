@@ -33,7 +33,7 @@ class Menu
                 cout << "Enter the test duration in minutes (1-30 minutes): ";
                 cin >> test->test_duration;
 
-            } while (test->test_duration <= 0 || test->test_duration > 10);
+            } while (test->test_duration <= 0 || test->test_duration > 30);
         }
 
         void set_stress()
