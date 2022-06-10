@@ -15,13 +15,7 @@
 
 #define FAN 23  // BCM pin number after using linux command gpio readall, locate physical pin and use BCM number
 
-
-// TODO:
-//
-//
-// 1. report +10c value
-// 2. use system("/* code here */") to run the malicious software on the cores
-
+class Menu;
 
 using namespace std;
 
@@ -35,8 +29,8 @@ class Test
         // test parameters
         int test_duration;  // in minutes
         float temp_threshold; // in degrees celcius
-        string filename;
-        bool is_stressed;
+        string filenames[2];
+        bool is_attacked;
         bool output_mode;
 
         // data containers
@@ -77,13 +71,26 @@ class Test
         //////////////////
         // constructor //
         /////////////////
-        Test(bool opm, int td = 10, string fn = "", float thresh = 80.000)
+        Test(bool opm, int td = 10, string fn = "", float thresh = 70.000)
         {
             test_duration = td;
             temp_threshold = thresh;
             output_mode = opm;
 
-            filename  = (fn != "") ? fn : ( _get_date() + "test.txt");
+            for (size_t phase = 0; phase < 2; phase++)
+            {
+                filenames[phase]  = (fn != "") ? fn : ( _get_date() + ((phase == 0)?"_normal":"_attack" ) +  ".txt");
+            }
+        }
+
+        //////////////////
+        //  destructor  //
+        /////////////////
+
+        ~Test()
+        {
+            // kill all infinite loops in case test doesn't finish correctly
+                system("pidof infinity | xargs kill");
         }
 
 
@@ -102,12 +109,17 @@ class Test
         // xx:xx:xx,temp,xx:xx:x(x+1),temp,(...)
         //
         //
-        // Args: None
+        // Args: send in phase from menu
+        //       test will run once in normal mode and then once in attack mode
         // Returns: None
-        void run()
+        void run(bool phase)
         {
             bool fan_on = false;
-            int fan_duration = 60*5; // 5 minutes for testing
+            time_t fan_off_time;
+
+
+            // changes the phase from no attack -> attack to automate the program
+            is_attacked = phase;
 
             /////////////////////////////////////
             ///////    SETUP WIRINGPI    ////////
@@ -116,14 +128,12 @@ class Test
             wiringPiSetupGpio();
             pinMode(FAN, OUTPUT);
 
-
-
             ////////////////////////////////////////
             ///// open log file to write data //////
             ////////////////////////////////////////
 
             ofstream out;
-            out.open(filename, ios::app);
+            out.open(filenames[is_attacked], ios::app);
 
             ////////////////////////////////
             // set initial time variables //
@@ -133,18 +143,19 @@ class Test
             // REMEMBER: this is not the starting temp, the starting temp is data[0]
 
             Temp threshold(temp_threshold); 
-            signed int count = 0;   // number of data points
+            unsigned int count = 0;   // number of data points
 
 
             ///////////////////////
             // output log header // 
             ///////////////////////
 
+            out << endl << endl;
             out << "Start Time: " << ctime( &(threshold.get_rawtime()) ) << endl << endl;
             out << "Test Duration: " << test_duration << endl; 
             out << "Threshold Temp: " << temp_threshold << endl; 
             out << "Output Mode: " << ( (output_mode == true) ? "verbose\n" : "quiet\n" ) ;
-            out << "Under Stress: " << boolalpha << is_stressed << endl << endl;
+            out << "Under Attack: " << boolalpha << is_attacked << endl << endl;
 
             // column headings
             out << "Timestamp (HH:MM:SS)  Temperature (C)" << endl;
@@ -153,6 +164,17 @@ class Test
             // output text to screen if applicable
             if (output_mode)
                 cout << "Start Time: " << ctime( &(threshold.get_rawtime() ) ) << endl << endl; 
+
+
+            // start inifinite loops in background processes for test
+            if (!is_attacked)
+            {
+                cout << "Starting Infinit loops on cores 1,2,3" << endl;
+                system("taskset -c 1 ./infinity &"); 
+                system("taskset -c 2 ./infinity &"); 
+                system("taskset -c 3 ./infinity &"); 
+            }
+
 
             //////////////////////////
             // Data Collection Loop // 
@@ -166,7 +188,7 @@ class Test
 
 
                 // write to log
-                out << "," << data[count].get_tm_str() << "," << data[count].cel()+10
+                out << "," << data[count].get_tm_str() << "," << ( data[count].cel() + ( (is_attacked)?10:0 ) )
                     << " (" << data[count].cel() << ")\n";
 
 
@@ -174,57 +196,52 @@ class Test
                 if (output_mode)
                 {
                     cout << "at " << data[count].get_tm_str() << " the cpu is " 
-                        << data[count].cel()+10 << "( " << data[count].cel()
+                        << data[count].cel() + ( (is_attacked)?10:0 ) << " (" << data[count].cel()
                         << ") degrees celcius\n";
                 }
 
 
+                ////////////////////////////
+                //      Fan Control      //
+                ////////////////////////////
 
-                /////////////////////////////////////////////////////
-                //  Checks if it needs to respond to Stress signal //
-                /////////////////////////////////////////////////////
-
-                ///////////////////////////////////////
-                //logic specific to stress condition //
-                ///////////////////////////////////////
-                
-                if (is_stressed)
+                // check if fan needs to be turned on
+                if( ( data[count].cel() + ( (is_attacked)?10:0 ) ) >= (threshold.cel()) )
                 {
-                    if( data[count].cel()+10 >= (threshold.cel()) )
-                    {
-                        if (output_mode)
-                            cout << "<!> ";
+                    if (output_mode)
+                        cout << "<!> ";
 
-                        // turn on fan if it's not on and the temp has crossed the threshold
-                        if ( !fan_on )
+                    // turn on fan if it's not on and the temp has crossed the threshold
+                    if ( !fan_on )
+                    {
+                        if (difftime( data[count].get_rawtime(), fan_off_time) >= 1)  
                         {
                             digitalWrite(FAN,HIGH); 
                             fan_on = true;
                             threshold.set_time(&(data[count].get_rawtime()));
 
                             out << ",threshold_reached," << threshold.get_tm_str() << endl;
+
                             // if (output_mode) // TODO - Uncomment after testing
-                                cout << "Threshold reached -- turning fan on" << endl;
+                            cout << "Threshold reached -- turning fan on" << endl;
+
                         }
-
                     }
-
-                    // turn fan off after fan_duration has elapsed 
-                    if ( fan_on)
-                    {
-                        if ( difftime(data[count].get_rawtime(), threshold.get_rawtime())  >=  (fan_duration) )
-                        {
-                            digitalWrite(FAN,LOW);
-                            fan_on = false;
-                            out << ",fan_shutoff reached," << threshold.cel() << endl;
-                            if (output_mode)
-                                cout << "Fan_Shutoff reached -- turning fan off" << endl;
-                        }
-
-                    }
-
 
                 }
+                else        // turn fan off when the temp is below the threshold
+                {
+                    if (fan_on)
+                    {
+                        digitalWrite(FAN,LOW);
+                        fan_on = false;
+                        out << ",fan_shutoff, reached" << endl;
+                        cout << "Fan_Shutoff reached -- turning fan off" << endl;   
+                        fan_off_time = data[count].get_rawtime();
+                    }
+
+                }
+
 
                 ///////////////////////////////////////////////////////////////////
                 // program ends no matter what if the length of test is exceeded //
@@ -233,8 +250,15 @@ class Test
                 if ( difftime(data[count].get_rawtime(), data[0].get_rawtime())  >=  (test_duration * 60 ))
                 {
                     // wait to exit until fan_timer has been reached
-                    //if ( !fan_on )
-                        break;
+                    if ( fan_on )
+                    {
+                        fan_on = false;
+                        digitalWrite(FAN,LOW);
+                    }
+
+                    break;
+
+
                 }
 
                 count++;
@@ -246,11 +270,28 @@ class Test
             out << endl << endl << stats.to_string() << endl; // write stats to log
             cout << stats.to_string() << endl;      // write stats to screen
 
+            out.close();
+            data.clear();                       // clear the vector for the next phase
 
-            cout << "End of test\n\n";
-            cout << "Press any key to continue...\n";
-            cin.ignore();
-            getchar();
+            if (!is_attacked)
+            {
+                cout << "Phase one finished. Press any key to continue to Phase 2... ";
+                cin.ignore();
+                getchar();
+            }
+
+
+            // kill infinite loops on the cores
+            if (is_attacked)
+            {
+                cout << "Killing Infinit loops on cores 2,3,4" << endl;
+                system("pidof infinity | xargs kill");
+                cout << "\n\nEnd of test\n\n";
+                cout << "Press any key to continue...\n";
+                cin.ignore();
+                getchar();
+            }
+
 
         }
 

@@ -36,33 +36,27 @@ class Menu
             } while (test->test_duration <= 0 || test->test_duration > 30);
         }
 
-        void set_stress()
-        {
-            char c = '0';
-            cout << "When the \"Stress\" variable is enabled, the computer will turn on\n"
-                << "The GPIO connected fan to attempt to cool the system.\n"
-                << "Turn stress on (y/n)? ";
-            while ( (c != 'y' ) && (c != 'Y') && (c != 'n') && (c != 'N') )
-            {
-                cin >> c; 
-            }
-
-            test->is_stressed = ( (c == 'y' || c == 'Y') ? true : false );
-        }
-
         void set_filename() 
         { 
+            string fn;
             cout << "Enter the desired filename (alphanumeric only): ";
-            cin >> test->filename;
+            cin >> fn; 
+
+            for (size_t phase = 0; phase < 2; phase++)
+            {
+                test->filenames[phase]  = ( fn +  ((phase == 0)?"_normal":"_attack" ) +  ".txt");
+            }
         }
+
 
         void set_temp_threshold()
         {
-            cout << "When the \"Stress\" variable is enabled, the computer will turn on\n"
-                << "The GPIO connected fan to attempt to cool the system.\n"
+            cout << "When the \"attack\" variable is enabled, the computer will add 10\n"
+                << "degrees Celsius to the running temperature. The GPIO connected fan will activate"
+                << " When it reaches the threshold temperature to attempt to cool the system.\n"
                 << "Enter the threshold temperature (in degrees celcius): ";
             cin >> test->temp_threshold;
-            
+
             while ( (test->temp_threshold < 25) && (test->temp_threshold > 90) )
             {
                 cout << "Enter a number between 25 and 90 (degC): " << endl;
@@ -70,9 +64,8 @@ class Menu
             }
         }
 
-        void show_menu()
+        void show_menu(bool select_part = true)
         {
-            // system("clear");
             cout << "<!>     CPU Temperature Reader     <!>" << endl;
             cout << setw(25) << right << "Test Duration:" 
                 << setw(7) << right << ( test->test_duration ) << " minutes\n";
@@ -80,21 +73,25 @@ class Menu
             cout << setw(25) << right << "Threshold Temperature: "
                 << setw(7) << right << ( test->temp_threshold ) << " (degC)\n";
 
-            cout << setw(25) << right << "Stress Mode: "
-                << setw(7) << right << ( test->is_stressed ? "On" : "Off" ) << endl; 
+            cout << setw(25) << right << "Attack Mode: "
+                << setw(7) << right << ( test->is_attacked ? "On" : "Off" ) << endl; 
 
-            cout << setw(25) << right << "Output Filename:";
-            cout << " " << left <<test->filename << endl << endl;
+            cout << setw(26) << right << "Output Filename (Normal):";
+            cout << " " << left << test->filenames[0] << endl;
+            cout << setw(26) << right << "Output Filename (Attack):";
+            cout << " " << left << test->filenames[1] << endl << endl;
 
-            
 
-            cout << "<!>     ~~~~~    MENU   ~~~~~      <!>" << endl;
-            cout << "     1. Change Length of Test" << endl;
-            cout << "     2. Set stress on/off" << endl;
-            cout << "     3. Set threshold temp" << endl;
-            cout << "     4. Change Output FileName" << endl;
-            cout << "     5. Begin Test " << endl;
-            cout << "     6. End Program" << endl;
+
+            if (select_part)
+            {
+                cout << "<!>     ~~~~~    MENU   ~~~~~      <!>" << endl;
+                cout << "     1. Change Length of Test" << endl;
+                cout << "     2. Set threshold temp" << endl;
+                cout << "     3. Change Output FileName" << endl;
+                cout << "     4. Begin Test " << endl;
+                cout << "     5. End Program" << endl;
+            }
 
         }	
 
@@ -124,24 +121,22 @@ class Menu
 
                     case '2':
                         system("clear");
-                        set_stress();
+                        set_temp_threshold();
                         break;
 
                     case '3':
                         system("clear");
-                        set_temp_threshold();
-                        break;
-
-                    case '4':
-                        system("clear");
                         set_filename();
                         break;
 
-                    case '5':
-                       test->run();
+                    case '4':
+                        test->run(0);   // normal 
+
+                        //system("clear");
+                        test->run(1);   // attack
                         break;
 
-                    case '6':
+                    case '5':
                         break;
 
                     default:
@@ -150,7 +145,7 @@ class Menu
                 }
 
 
-            } while (choice != '6');
+            } while (choice != '5' && choice !='4');
 
         }
 
