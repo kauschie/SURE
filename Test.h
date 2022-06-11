@@ -159,21 +159,19 @@ class Test
 
             // column headings
             out << "Timestamp (HH:MM:SS)  Temperature (C)" << endl;
-
-
             // output text to screen if applicable
+            // only need the one line becaue it'll have the menu there
             if (output_mode)
                 cout << "Start Time: " << ctime( &(threshold.get_rawtime() ) ) << endl << endl; 
 
 
+
+
             // start inifinite loops in background processes for test
-            if (!is_attacked)
-            {
-                cout << "Starting Infinit loops on cores 1,2,3" << endl;
-                system("taskset -c 1 ./infinity &"); 
-                system("taskset -c 2 ./infinity &"); 
-                system("taskset -c 3 ./infinity &"); 
-            }
+            cout << "Starting Infinit loops on cores 1,2,3" << endl;
+            system("taskset -c 1 ./infinity &"); 
+            system("taskset -c 2 ./infinity &"); 
+            system("taskset -c 3 ./infinity &"); 
 
 
             //////////////////////////
@@ -266,7 +264,7 @@ class Test
             }
 
 
-            stats.get_Stats(data);                  // collect stats i want
+            stats.get_Stats(data, temp_threshold);                  // collect stats i want
             out << endl << endl << stats.to_string() << endl; // write stats to log
             cout << stats.to_string() << endl;      // write stats to screen
 
