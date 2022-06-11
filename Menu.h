@@ -52,7 +52,7 @@ class Menu
         void set_temp_threshold()
         {
             cout << "When the \"attack\" variable is enabled, the computer will add 10\n"
-                << "degrees Celsius to the running temperature. The GPIO connected fan will activate"
+                << "degrees Celsius to the running temperature. The GPIO connected fan will activate\n"
                 << " When it reaches the threshold temperature to attempt to cool the system.\n"
                 << "Enter the threshold temperature (in degrees celcius): ";
             cin >> test->temp_threshold;
@@ -64,16 +64,33 @@ class Menu
             }
         }
 
+        void set_start_temp()
+        {
+            cout << "The program will wait to start until the CPU "
+                << "reaches this temperature: ";
+            cin >> test->start_temp;
+
+            while ( (test->start_temp < 25) && (test->start_temp > 90) )
+            {
+                cout << "Enter a number between 25 and 90 (degC): " << endl;
+                cin >> test->start_temp;
+            }
+        }
+
         void show_menu(bool select_part = true)
         {
             cout << "<!>     CPU Temperature Reader     <!>" << endl;
             cout << setw(25) << right << "Test Duration:" 
                 << setw(7) << right << ( test->test_duration ) << " minutes\n";
 
-            cout << setw(25) << right << "Threshold Temperature: "
+            cout << setw(25) << right << "Start Temperature:" 
+                << setw(7) << right << ( test->start_temp ) << " (degC)\n";
+
+
+            cout << setw(25) << right << "Threshold Temperature:"
                 << setw(7) << right << ( test->temp_threshold ) << " (degC)\n";
 
-            cout << setw(25) << right << "Attack Mode: "
+            cout << setw(25) << right << "Attack Mode:"
                 << setw(7) << right << ( test->is_attacked ? "On" : "Off" ) << endl; 
 
             cout << setw(26) << right << "Output Filename (Normal):";
@@ -87,10 +104,11 @@ class Menu
             {
                 cout << "<!>     ~~~~~    MENU   ~~~~~      <!>" << endl;
                 cout << "     1. Change Length of Test" << endl;
-                cout << "     2. Set threshold temp" << endl;
-                cout << "     3. Change Output FileName" << endl;
-                cout << "     4. Begin Test " << endl;
-                cout << "     5. End Program" << endl;
+                cout << "     2. Set the start temp" << endl;
+                cout << "     3. Set threshold temp" << endl;
+                cout << "     4. Change Output FileName" << endl;
+                cout << "     5. Begin Test " << endl;
+                cout << "     6. End Program" << endl;
             }
 
         }	
@@ -121,22 +139,25 @@ class Menu
 
                     case '2':
                         system("clear");
-                        set_temp_threshold();
+                        set_start_temp();
                         break;
 
                     case '3':
                         system("clear");
-                        set_filename();
+                        set_temp_threshold();
                         break;
 
                     case '4':
-                        test->run(0);   // normal 
-
-                        //system("clear");
-                        test->run(1);   // attack
+                        system("clear");
+                        set_filename();
                         break;
 
                     case '5':
+                        test->run(0);   // normal 
+                        test->run(1);   // attack
+                        break;
+
+                    case '6':
                         break;
 
                     default:
@@ -145,7 +166,7 @@ class Menu
                 }
 
 
-            } while (choice != '5' && choice !='4');
+            } while (choice != '6' && choice !='5');
 
         }
 

@@ -26,6 +26,8 @@ class Stats
         float delta_max;
         float delta_min;
         float start_temp;
+        double thresh_time;
+        float total_fan_time;
 
         //float max_10;
         //float min_10;
@@ -42,6 +44,8 @@ class Stats
             delta_max = NOT_DEFINED;
             delta_min = NOT_DEFINED;
             start_temp = NOT_DEFINED;            
+            thresh_time = NOT_DEFINED;
+            total_fan_time = NOT_DEFINED;
             //max_10 = NOT_DEFINED;
             //min_10 = NOT_DEFINED;
             //avg_10 = NOT_DEFINED;
@@ -49,7 +53,8 @@ class Stats
             //delta_min_10 = NOT_DEFINED;
         }
 
-        void get_Stats(vector<Temp> & data, float & temp_threshold)
+        void get_Stats(vector<Temp> & data, float & temp_threshold, bool & attack, 
+                vector<time_t> & off_times, vector<time_t> & on_times)
         {
             // starting temperature
             start_temp = data[0].cel();
@@ -69,6 +74,13 @@ class Stats
             // delta from min
             delta_min = avg - min;
 
+            // time to reach threshold temperature
+            thresh_time = get_threshold_time(data, temp_threshold, attack);
+
+            // total fan activation time
+            total_fan_time = get_total_fan_time(off_times, on_times);
+            
+
             // avg of last ten
             //avg_10 = avg_last_10(data);
             
@@ -86,17 +98,44 @@ class Stats
 
         }
 
-        string get_threshold_time(vector<Temp> & data, float & temp_threshold))
+        // TODO:
+        //      write a function that sums up all the time on for the fan
+        //
+
+        double get_total_fan_time(vector<time_t> & _off_times, vector<time_t> & _on_times) const
+        {
+            double sum = 0;
+            auto on_it = _on_times.begin();
+            auto off_it = _off_times.begin();
+
+            // fan was turned on at least once
+            if (!_on_times.empty())
+            {
+                for (; on_it != _on_times.end(); on_it++, off_it++)
+                {
+                    sum += ( (*off_it) - (*on_it) );
+                }
+                
+            }
+
+            return sum;
+
+        }
+
+
+
+        double get_threshold_time(vector<Temp> & data, float & temp_threshold, bool & attk)
         {
             auto it = data.begin(); 
 
             while (it != data.end())
             {
-                if ( (*it).cel() >= temp_threshold )
-                {
-                    return (*it).
-                }
+                if ( (*it).cel() >= ( temp_threshold - (attk?10:0) ) );
+                    return ( difftime( (*it).get_rawtime(), data[0].get_rawtime() ) );
+                it++;
             }
+
+            return -1;
 
         }
 
@@ -165,6 +204,7 @@ class Stats
             temp << setw(6) << setfill('0');
             temp << "oOo--->  Stats  <---oOo" << endl;
             temp << "Starting temperature: " << start_temp << endl;
+            temp << "Time(s) before threshold was reached: " << thresh_time << endl;
             temp << "Min from total data set: " << min << endl;
             temp << "Max from total data set: " << max << endl;
             //temp << "Max from last 10 data points: " << max_10 << endl;

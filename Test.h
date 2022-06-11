@@ -10,6 +10,7 @@
 #include <sstream> // for ostringstream
 #include <vector>   // for vector container
 #include <cstdio>  // for getchar()
+#include <unistd.h> // for usleep
 #include <wiringPi.h>   // to write to GPIO pins  **NOTE** Must also compile with -lwiringPi eg) ((( g++ -o main main.cpp -lwiringPi  )))
 #include "Stats.h"  // for doing stats on our data set
 
@@ -32,6 +33,7 @@ class Test
         string filenames[2];
         bool is_attacked;
         bool output_mode;
+        float start_temp; // in deg C
 
         // data containers
         vector<Temp> data; // holds all temperature data points
@@ -71,11 +73,12 @@ class Test
         //////////////////
         // constructor //
         /////////////////
-        Test(bool opm, int td = 10, string fn = "", float thresh = 70.000)
+        Test(bool opm, int td = 10, string fn = "", float thresh = 70.000, float st_t = 41)
         {
             test_duration = td;
             temp_threshold = thresh;
             output_mode = opm;
+            start_temp = st_t;
 
             for (size_t phase = 0; phase < 2; phase++)
             {
@@ -90,7 +93,7 @@ class Test
         ~Test()
         {
             // kill all infinite loops in case test doesn't finish correctly
-                system("pidof infinity | xargs kill");
+            system("pidof infinity | xargs kill 2> /dev/null");
         }
 
 
@@ -115,7 +118,9 @@ class Test
         void run(bool phase)
         {
             bool fan_on = false;
-            time_t fan_off_time;
+            vector<time_t> fan_times[2]; // 0 are fan off times, 1 are fan on times
+            
+            
 
 
             // changes the phase from no attack -> attack to automate the program
@@ -143,16 +148,49 @@ class Test
             // REMEMBER: this is not the starting temp, the starting temp is data[0]
 
             Temp threshold(temp_threshold); 
+            Temp current;
             unsigned int count = 0;   // number of data points
 
+
+
+           ///////////////////////////////////////////////////////////////////
+           /// check that the program has reached the starting temperature ///
+           ///////////////////////////////////////////////////////////////////
+            if (fabs(current.cel() - start_temp) > 1)
+                cout << "Waiting for CPU to reach the starting temperature...\n" << endl;
+            while ( current.cel() - start_temp > 1 )
+            {
+                usleep(2000000); // sleep for 1 second intervals and then check again until temp reaches start temp
+                current.retake_temp();
+            }
+        
+            
+             // start inifinite loops in background processes for test
+            cout << "Starting Infinit loops on cores 1,2,3" << endl;
+            system("taskset -c 1 ./infinity &"); 
+            system("taskset -c 2 ./infinity &"); 
+            system("taskset -c 3 ./infinity &"); 
+
+           
+            if (fabs(start_temp - current.cel()) > 1 )
+                cout << "Bringing the CPU up to the starting temperature...\n" << endl;
+            while ( start_temp - current.cel() > 1 )
+            {
+                usleep(500000); // sleep for 0.5 second intervals and then check again until temp reaches start temp
+                current.retake_temp();
+            }
+
+            cout << "CPU has reached starting temperature...\n";
+            cout << "Data collection beginning at " << current.get_tm_str() << endl;
 
             ///////////////////////
             // output log header // 
             ///////////////////////
 
             out << endl << endl;
-            out << "Start Time: " << ctime( &(threshold.get_rawtime()) ) << endl << endl;
+            out << "Start Time: " << ctime( &(current.get_rawtime()) ) << endl << endl;
             out << "Test Duration: " << test_duration << endl; 
+            out << "Start Temp: " << start_temp << endl;
             out << "Threshold Temp: " << temp_threshold << endl; 
             out << "Output Mode: " << ( (output_mode == true) ? "verbose\n" : "quiet\n" ) ;
             out << "Under Attack: " << boolalpha << is_attacked << endl << endl;
@@ -162,16 +200,7 @@ class Test
             // output text to screen if applicable
             // only need the one line becaue it'll have the menu there
             if (output_mode)
-                cout << "Start Time: " << ctime( &(threshold.get_rawtime() ) ) << endl << endl; 
-
-
-
-
-            // start inifinite loops in background processes for test
-            cout << "Starting Infinit loops on cores 1,2,3" << endl;
-            system("taskset -c 1 ./infinity &"); 
-            system("taskset -c 2 ./infinity &"); 
-            system("taskset -c 3 ./infinity &"); 
+                cout << "Start Time: " << ctime(&(current.get_rawtime())) << endl << endl; 
 
 
             //////////////////////////
@@ -204,23 +233,31 @@ class Test
                 ////////////////////////////
 
                 // check if fan needs to be turned on
-                if( ( data[count].cel() + ( (is_attacked)?10:0 ) ) >= (threshold.cel()) )
+                if( ( data[count].cel() + ( (is_attacked)?10:0 ) ) >= (temp_threshold) )
                 {
-                    if (output_mode)
-                        cout << "<!> ";
-
                     // turn on fan if it's not on and the temp has crossed the threshold
                     if ( !fan_on )
                     {
-                        if (difftime( data[count].get_rawtime(), fan_off_time) >= 1)  
-                        {
+                        // if fan is being turned on the first time
+                        if (fan_times[1].empty())
+                        { 
                             digitalWrite(FAN,HIGH); 
                             fan_on = true;
                             threshold.set_time(&(data[count].get_rawtime()));
+                            fan_times[1].push_back(data[count].get_rawtime());   // record time that fan turns on 
 
-                            out << ",threshold_reached," << threshold.get_tm_str() << endl;
+                            out << ",threshold,reached" << threshold.get_tm_str() << endl;
 
-                            // if (output_mode) // TODO - Uncomment after testing
+                            cout << "Threshold reached -- turning fan on" << endl;
+                        }
+                        else if (difftime( data[count].get_rawtime(), fan_times[0].back()) >= 1)  
+                        {
+                            
+                            digitalWrite(FAN,HIGH); 
+                            fan_on = true;
+                            threshold.set_time(&(data[count].get_rawtime()));
+                            fan_times[1].push_back(data[count].get_rawtime());   // record time that fan turns on 
+                            out << ",threshold,reached" << threshold.get_tm_str() << endl;
                             cout << "Threshold reached -- turning fan on" << endl;
 
                         }
@@ -231,11 +268,22 @@ class Test
                 {
                     if (fan_on)
                     {
-                        digitalWrite(FAN,LOW);
-                        fan_on = false;
-                        out << ",fan_shutoff, reached" << endl;
-                        cout << "Fan_Shutoff reached -- turning fan off" << endl;   
-                        fan_off_time = data[count].get_rawtime();
+                        if (fan_times[0].empty())
+                        {
+                            digitalWrite(FAN,LOW);
+                            fan_on = false;
+                            out << ",fan_shutoff, reached" << endl;
+                            cout << "Fan_Shutoff reached -- turning fan off" << endl;   
+                            fan_times[0].push_back(data[count].get_rawtime());
+                        }
+                        else if (difftime( data[count].get_rawtime(), fan_times[1].back()) >= 1)
+                        {
+                            digitalWrite(FAN,LOW);
+                            fan_on = false;
+                            out << ",fan_shutoff, reached" << endl;
+                            cout << "Fan_Shutoff reached -- turning fan off" << endl;   
+                            fan_times[0].push_back(data[count].get_rawtime());
+                        }
                     }
 
                 }
@@ -252,6 +300,7 @@ class Test
                     {
                         fan_on = false;
                         digitalWrite(FAN,LOW);
+                        fan_times[0].push_back(data[count].get_rawtime());
                     }
 
                     break;
@@ -263,8 +312,12 @@ class Test
 
             }
 
+            // kill infinite loops when finished
+            cout << "Killing Infinit loops on cores 2,3,4" << endl;
+            system("pidof infinity | xargs kill 2>/dev/null");
 
-            stats.get_Stats(data, temp_threshold);                  // collect stats i want
+            cout << "Calculating Stats...\n\n";
+            stats.get_Stats(data, temp_threshold, is_attacked, fan_times[0], fan_times[1]); // collect stats i want
             out << endl << endl << stats.to_string() << endl; // write stats to log
             cout << stats.to_string() << endl;      // write stats to screen
 
@@ -282,8 +335,6 @@ class Test
             // kill infinite loops on the cores
             if (is_attacked)
             {
-                cout << "Killing Infinit loops on cores 2,3,4" << endl;
-                system("pidof infinity | xargs kill");
                 cout << "\n\nEnd of test\n\n";
                 cout << "Press any key to continue...\n";
                 cin.ignore();

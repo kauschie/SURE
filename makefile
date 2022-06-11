@@ -1,7 +1,7 @@
 all: main infinity
 
 clean:
-	rm -f *.o *.exe *.out main infinity
+	rm -f *.o *.exe *.out main infinity *.txt ~/*.png
 
 main: main.o Temperature.h Test.h Stats.h Menu.h
 	g++ -o main main.o -lwiringPi

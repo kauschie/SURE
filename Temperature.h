@@ -33,7 +33,7 @@ private:
 	
 //    int _get_temperature(int x) { return 69.69; }   // stub for testing when not on linux
 
-	float _get_temperature()
+	void _get_temperature()
 	{
 		static ifstream fin;
 		float temp;
@@ -46,13 +46,14 @@ private:
 			cout <<         "Quitting now..."      << endl;
 			cout << endl << "********************" << endl;
 
-			return 1;
+		    throw "could not open temperature file\n";	
+
 		}
 		
 		fin >> temp;
 		fin.close();
 
-		return temp*.001;
+		c_temp = temp*.001;
 	}
 
 
@@ -65,7 +66,7 @@ public:
 	Temp()
 	{
 
-		c_temp = _get_temperature();
+		_get_temperature();
 		_get_time();
 	}
 
@@ -95,6 +96,8 @@ public:
         curr_time = localtime(&rawtime);
         strftime(tm_str, 21, "%T", curr_time); // get time as string in time_buff
     }
+
+    void retake_temp() { _get_temperature(); _get_time(); }
 	
     // getter functions for times
     time_t & get_rawtime() { return rawtime; } // return a reference so that it can be used as lvalue
@@ -103,8 +106,6 @@ public:
     // getter functions for temp
 	float cel()
 	{
-		//c_temp = _get_temperature();
-//		c_temp = _get_temperature(1); // stub function
 		return c_temp;
 	}
 
@@ -124,6 +125,5 @@ public:
 };
 
 string Temp::filename = "/sys/class/thermal/thermal_zone0/temp";
-//string Temp::filename = "test_temp";
 
 #endif
