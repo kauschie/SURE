@@ -119,7 +119,7 @@ class Test
         {
             bool fan_on = false;
             vector<time_t> fan_times[2]; // 0 are fan off times, 1 are fan on times
-            
+            size_t power_readings = 0;
             
 
 
@@ -227,6 +227,18 @@ class Test
                         << ") degrees celcius\n";
                 }
 
+                // Notify operator to take manual reading
+                if ( static_cast<int>(difftime( data[count].get_rawtime(), current.get_rawtime())) % 60 == 0 )
+                {
+                    cout << "<!> <!>    Take Power Reading Now : " << data[count].get_tm_str() 
+                        << "      <!> <!>" << endl;
+                }
+
+                if ( static_cast<int>(difftime( data[count].get_rawtime(), current.get_rawtime())) % 60 == 58 )
+                {
+                    cout << ":::       GET READY TO TAKE NEXT READING        :::" << endl;       
+                }
+
 
                 ////////////////////////////
                 //      Fan Control      //
@@ -248,7 +260,7 @@ class Test
 
                             out << ",threshold,reached" << threshold.get_tm_str() << endl;
 
-                            cout << "Threshold reached -- turning fan on" << endl;
+                            //cout << "Threshold reached -- turning fan on" << endl;
                         }
                         else if (difftime( data[count].get_rawtime(), fan_times[0].back()) >= 1)  
                         {
@@ -258,12 +270,13 @@ class Test
                             threshold.set_time(&(data[count].get_rawtime()));
                             fan_times[1].push_back(data[count].get_rawtime());   // record time that fan turns on 
                             out << ",threshold,reached" << threshold.get_tm_str() << endl;
-                            cout << "Threshold reached -- turning fan on" << endl;
+                            //cout << "Threshold reached -- turning fan on" << endl;
 
                         }
                     }
 
                 }
+
                 else        // turn fan off when the temp is below the threshold
                 {
                     if (fan_on)
@@ -273,7 +286,7 @@ class Test
                             digitalWrite(FAN,LOW);
                             fan_on = false;
                             out << ",fan_shutoff, reached" << endl;
-                            cout << "Fan_Shutoff reached -- turning fan off" << endl;   
+                            //cout << "Fan_Shutoff reached -- turning fan off" << endl;   
                             fan_times[0].push_back(data[count].get_rawtime());
                         }
                         else if (difftime( data[count].get_rawtime(), fan_times[1].back()) >= 1)
@@ -281,7 +294,7 @@ class Test
                             digitalWrite(FAN,LOW);
                             fan_on = false;
                             out << ",fan_shutoff, reached" << endl;
-                            cout << "Fan_Shutoff reached -- turning fan off" << endl;   
+                            //cout << "Fan_Shutoff reached -- turning fan off" << endl;   
                             fan_times[0].push_back(data[count].get_rawtime());
                         }
                     }
@@ -295,7 +308,7 @@ class Test
 
                 if ( difftime(data[count].get_rawtime(), data[0].get_rawtime())  >=  (test_duration * 60 ))
                 {
-                    // wait to exit until fan_timer has been reached
+                    // kill fan if still running and mark down the final time 
                     if ( fan_on )
                     {
                         fan_on = false;
@@ -316,18 +329,19 @@ class Test
             cout << "Killing Infinit loops on cores 2,3,4" << endl;
             system("pidof infinity | xargs kill 2>/dev/null");
 
+            // run some basic data analysis
             cout << "Calculating Stats...\n\n";
             stats.get_Stats(data, temp_threshold, is_attacked, fan_times[0], fan_times[1]); // collect stats i want
             out << endl << endl << stats.to_string() << endl; // write stats to log
             cout << stats.to_string() << endl;      // write stats to screen
 
-            out.close();
+            out.close();                        // close the data file
             data.clear();                       // clear the vector for the next phase
 
             if (!is_attacked)
             {
                 cout << "Phase one finished. Press any key to continue to Phase 2... ";
-                cin.ignore();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
                 getchar();
             }
 
@@ -337,7 +351,7 @@ class Test
             {
                 cout << "\n\nEnd of test\n\n";
                 cout << "Press any key to continue...\n";
-                cin.ignore();
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
                 getchar();
             }
 

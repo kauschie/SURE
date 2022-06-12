@@ -74,12 +74,11 @@ class Stats
             // delta from min
             delta_min = avg - min;
 
-            // time to reach threshold temperature
-            thresh_time = get_threshold_time(data, temp_threshold, attack);
-
             // total fan activation time
             total_fan_time = get_total_fan_time(off_times, on_times);
             
+            // time to reach threshold temperature
+            thresh_time = get_threshold_time(data, temp_threshold, attack);
 
             // avg of last ten
             //avg_10 = avg_last_10(data);
@@ -130,10 +129,12 @@ class Stats
 
             while (it != data.end())
             {
-                if ( (*it).cel() >= ( temp_threshold - (attk?10:0) ) );
+                if ( (*it).cel() >= ( temp_threshold - (attk?10:0) ) )
                     return ( difftime( (*it).get_rawtime(), data[0].get_rawtime() ) );
                 it++;
             }
+
+            //cout << "args were " << &data << ", " << temp_threshold << ", " << attk << endl;
 
             return -1;
 
@@ -204,7 +205,14 @@ class Stats
             temp << setw(6) << setfill('0');
             temp << "oOo--->  Stats  <---oOo" << endl;
             temp << "Starting temperature: " << start_temp << endl;
-            temp << "Time(s) before threshold was reached: " << thresh_time << endl;
+            temp << "Time (s) before threshold was reached: ";
+
+            if (thresh_time == -1)
+                temp << "Never reached temp" << endl;
+            else
+                temp << thresh_time << endl;
+
+            temp << "Total time (s) the fan was on: " << total_fan_time << endl;
             temp << "Min from total data set: " << min << endl;
             temp << "Max from total data set: " << max << endl;
             //temp << "Max from last 10 data points: " << max_10 << endl;
@@ -219,7 +227,7 @@ class Stats
             return temp.str();
 
         }
-       
+
 };
 
 #endif

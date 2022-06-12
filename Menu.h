@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <iomanip>
+#include <cstdio>
 #include "Test.h"
 
 using namespace std;
@@ -21,6 +22,11 @@ class Menu
         Menu(Test * t)
         {
             test = t;
+        }
+
+        ~Menu()
+        {
+            system("pidof infinity | xargs kill 2>/dev/null");
         }
 
         void set_test_length()
