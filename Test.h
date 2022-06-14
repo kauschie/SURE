@@ -32,6 +32,7 @@ class Test
         float temp_threshold; // in degrees celcius
         string filenames[2];
         bool is_attacked;
+        float attack_temp;
         bool output_mode;
         float start_temp; // in deg C
 
@@ -73,12 +74,13 @@ class Test
         //////////////////
         // constructor //
         /////////////////
-        Test(bool opm, int td = 10, string fn = "", float thresh = 70.000, float st_t = 41)
+        Test(bool opm, int td = 10, string fn = "", float thresh = 80.000, float st_t = 52, float atk_t = 15)
         {
             test_duration = td;
             temp_threshold = thresh;
             output_mode = opm;
             start_temp = st_t;
+            attack_temp = atk_t;
 
             for (size_t phase = 0; phase < 2; phase++)
             {
@@ -188,11 +190,12 @@ class Test
             ///////////////////////
 
             out << endl << endl;
+            out << "Output Mode: " << ( (output_mode == true) ? "Verbose\n" : "Quiet\n" ) ;
             out << "Start Time: " << ctime( &(current.get_rawtime()) ) << endl << endl;
             out << "Test Duration: " << test_duration << endl; 
             out << "Start Temp: " << start_temp << endl;
             out << "Threshold Temp: " << temp_threshold << endl; 
-            out << "Output Mode: " << ( (output_mode == true) ? "verbose\n" : "quiet\n" ) ;
+            out << "Attack Temp: " <<  attack_temp << endl;
             out << "Under Attack: " << boolalpha << is_attacked << endl << endl;
 
             // column headings
@@ -215,7 +218,8 @@ class Test
 
 
                 // write to log
-                out << "," << data[count].get_tm_str() << "," << ( data[count].cel() + ( (is_attacked)?10:0 ) )
+                out << "," << data[count].get_tm_str() << "," 
+                    << ( data[count].cel() + ( (is_attacked)?attack_temp:0 ) )
                     << " (" << data[count].cel() << ")\n";
 
 
@@ -223,7 +227,7 @@ class Test
                 if (output_mode)
                 {
                     cout << "at " << data[count].get_tm_str() << " the cpu is " 
-                        << data[count].cel() + ( (is_attacked)?10:0 ) << " (" << data[count].cel()
+                        << data[count].cel() + ( (is_attacked)?attack_temp:0 ) << " (" << data[count].cel()
                         << ") degrees celcius\n";
                 }
 
@@ -245,7 +249,7 @@ class Test
                 ////////////////////////////
 
                 // check if fan needs to be turned on
-                if( ( data[count].cel() + ( (is_attacked)?10:0 ) ) >= (temp_threshold) )
+                if( ( data[count].cel() + ( (is_attacked)?attack_temp:0 ) ) >= (temp_threshold) )
                 {
                     // turn on fan if it's not on and the temp has crossed the threshold
                     if ( !fan_on )
@@ -262,7 +266,7 @@ class Test
 
                             //cout << "Threshold reached -- turning fan on" << endl;
                         }
-                        else if (difftime( data[count].get_rawtime(), fan_times[0].back()) >= 1)  
+                        else if (difftime( data[count].get_rawtime(), fan_times[0].back()) >= 10)  
                         {
                             
                             digitalWrite(FAN,HIGH); 
@@ -281,15 +285,8 @@ class Test
                 {
                     if (fan_on)
                     {
-                        if (fan_times[0].empty())
-                        {
-                            digitalWrite(FAN,LOW);
-                            fan_on = false;
-                            out << ",fan_shutoff, reached" << endl;
-                            //cout << "Fan_Shutoff reached -- turning fan off" << endl;   
-                            fan_times[0].push_back(data[count].get_rawtime());
-                        }
-                        else if (difftime( data[count].get_rawtime(), fan_times[1].back()) >= 1)
+                        
+                       if (difftime( data[count].get_rawtime(), fan_times[1].back()) >= 10)
                         {
                             digitalWrite(FAN,LOW);
                             fan_on = false;
@@ -331,20 +328,23 @@ class Test
 
             // run some basic data analysis
             cout << "Calculating Stats...\n\n";
-            stats.get_Stats(data, temp_threshold, is_attacked, fan_times[0], fan_times[1]); // collect stats i want
+
+            // collect stats i want
+            stats.get_Stats(data, temp_threshold, is_attacked, fan_times[0], fan_times[1], attack_temp); 
             out << endl << endl << stats.to_string() << endl; // write stats to log
             cout << stats.to_string() << endl;      // write stats to screen
 
             out.close();                        // close the data file
             data.clear();                       // clear the vector for the next phase
 
+            /*
             if (!is_attacked)
             {
                 cout << "Phase one finished. Press any key to continue to Phase 2... ";
                 cin.ignore(numeric_limits<streamsize>::max(), '\n');
                 getchar();
             }
-
+            */
 
             // kill infinite loops on the cores
             if (is_attacked)
